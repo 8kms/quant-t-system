@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.DS_Store
+.env
+data/
+output/
+*.csv
+*.md
+!README.md
+config/settings.json
+config/watchlist.csv

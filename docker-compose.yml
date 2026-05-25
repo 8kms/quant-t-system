@@ -1,0 +1,14 @@
+services:
+  tquant:
+    build: .
+    container_name: tquant-dashboard
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TQUANT_PASSWORD=${TQUANT_PASSWORD:-}
+      - TQUANT_SECRET_KEY=${TQUANT_SECRET_KEY:-tquant-dashboard}
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./output:/app/output

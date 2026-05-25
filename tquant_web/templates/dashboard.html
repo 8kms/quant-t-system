@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}做T工作台 · 总览{% endblock %}
+{% block heading %}做T决策台{% endblock %}
+{% block subheading %}先确认数据，再看信号，最后点进个股核对分时和因子{% endblock %}
+
+{% block content %}
+<section class="workflow">
+  <div class="step done">
+    <strong>1 数据</strong>
+    <span>日线和分钟线是否完整</span>
+  </div>
+  <div class="step done">
+    <strong>2 信号</strong>
+    <span>判断反T、正T或不动</span>
+  </div>
+  <div class="step done">
+    <strong>3 核对</strong>
+    <span>点股票查看分时和VWAP</span>
+  </div>
+  <div class="step done">
+    <strong>4 回测</strong>
+    <span>确认历史同类胜率</span>
+  </div>
+</section>
+
+<section class="metrics">
+  <div class="metric">
+    <span>今日可做T</span>
+    <strong>{{ plan_active_count|default(0) }}</strong>
+  </div>
+  <div class="metric">
+    <span>数据可用股票</span>
+    <strong>{% if not data_status.empty %}{{ data_ok_count }}/{{ data_status|length }}{% else %}0{% endif %}</strong>
+  </div>
+  <div class="metric">
+    <span>市场广度</span>
+    <strong class="small-strong">
+      <span id="breadth-badge" class="breadth-badge {% if market_breadth.score >= 2 %}strong{% elif market_breadth.score >= 1 %}neutral{% else %}weak{% endif %}">
+        {{ market_breadth.sentiment }} (涨停{{ market_breadth.limit_up|default(0) }})
+      </span>
+    </strong>
+  </div>
+  <div class="metric">
+    <span>平均成功率</span>
+    <strong>{% if not summary.empty %}{{ summary.iloc[0]["success_rate"]|pct }}{% else %}-{% endif %}</strong>
+  </div>
+  <div class="metric">
+    <span>平均净收益</span>
+    <strong>{% if not summary.empty %}{{ summary.iloc[0]["avg_net_return"]|pct }}{% else %}-{% endif %}</strong>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>今日执行计划</h2>
+    <a href="/journal">记录做T</a>
+  </div>
+  {% if plans is not defined or plans.empty %}
+    <div class="empty">暂无执行计划。先补数据，再执行全量刷新。</div>
+  {% else %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>代码</th>
+            <th>名称</th>
+            <th>建议</th>
+            <th>策略</th>
+            <th class="num">评分</th>
+            <th class="num">T仓</th>
+            <th class="num">卖1</th>
+            <th class="num">卖2</th>
+            <th class="num">VWAP买</th>
+            <th class="num">均线买</th>
+            <th class="num">止损买回</th>
+            <th>风险</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for _, row in plans.iterrows() %}
+            <tr>
+              <td>
+                {% if row.status == "可用" %}
+                  <a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a>
+                {% else %}
+                  {{ row.symbol }}
+                {% endif %}
+              </td>
+              <td>{{ row["name"] }}</td>
+              <td><span class="status {{ 'bad' if row.recommendation in ['禁止做T', '缺数据'] else 'ok' }}">{{ row.recommendation }}</span></td>
+              <td>{{ row.primary_strategy }}</td>
+              <td class="num score">{{ row.suitability_score|num }}</td>
+              <td class="num">{{ row.trade_ratio|pct }}</td>
+              <td class="num">{{ row.sell_ref_1|num(3) }}</td>
+              <td class="num">{{ row.sell_ref_2|num(3) }}</td>
+              <td class="num">{{ row.buy_ref_vwap|num(3) }}</td>
+              <td class="num">{{ row.buy_ref_ma|num(3) }}</td>
+              <td class="num">{{ row.stop_buyback|num(3) }}</td>
+              <td>{{ row.risk_flags }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>数据状态</h2>
+      <a href="{{ url_for('data_page') }}">管理数据</a>
+    </div>
+    {% if data_status.empty %}
+      <div class="empty">股票池为空。先去股票池添加代码，再上传或拉取数据。</div>
+    {% else %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>名称</th>
+              <th>状态</th>
+              <th class="num">日线</th>
+              <th>最新日线</th>
+              <th class="num">分钟线</th>
+              <th>最新分钟线</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for _, row in data_status.iterrows() %}
+              <tr>
+                <td>
+                  {% if row.status == "可用" %}
+                    <a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a>
+                  {% else %}
+                    <span>{{ row.symbol }}</span>
+                  {% endif %}
+                </td>
+                <td>{{ row["name"] }}</td>
+                <td><span class="status {{ 'ok' if row.status == '可用' else 'bad' }}">{{ row.status }}</span></td>
+                <td class="num">{{ row.daily_rows }}</td>
+                <td>{{ row.latest_daily }}</td>
+                <td class="num">{{ row.minute_rows }}</td>
+                <td>{{ row.latest_minute }}</td>
+              </tr>
+              {% if row.message and row.message != "数据完整" %}
+                <tr class="reason-row"><td colspan="7">提示：{{ row.message }}</td></tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>操作顺序</h2>
+    </div>
+    <form method="post" action="{{ url_for('refresh') }}" class="action-grid vertical">
+      <button type="submit" name="action" value="profile">1 更新个股画像</button>
+      <button type="submit" name="action" value="signals">2 生成今日信号</button>
+      <button type="submit" name="action" value="backtest">3 重新回测验证</button>
+      <button type="submit" name="action" value="all" class="primary">一键全部执行</button>
+    </form>
+  </div>
+</section>
+
+<section class="layout two">
+  <div class="panel wide">
+    <div class="panel-head">
+      <h2>今日优先观察</h2>
+      {% if latest_signal %}<a href="{{ url_for('output_file', filename=latest_signal.name) }}">CSV</a>{% endif %}
+    </div>
+    {% if active.empty %}
+      <div class="empty">暂无达到阈值的做T信号。</div>
+    {% else %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>名称</th>
+              <th>动作</th>
+              <th class="num">分数</th>
+              <th class="num">仓位</th>
+              <th class="num">观察价</th>
+              <th class="num">目标价</th>
+              <th class="num">风控价</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for _, row in active.iterrows() %}
+              <tr>
+                <td><a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a></td>
+                <td>{{ row["name"] }}</td>
+                <td><span class="tag {{ row.action }}">{{ row.action_cn }}</span></td>
+                <td class="num score">{{ row.score|num }}</td>
+                <td class="num">{{ row.trade_ratio|pct }}</td>
+                <td class="num">{{ row.observe_price|num(3) }}</td>
+                <td class="num">{{ row.target_price|num(3) }}</td>
+                <td class="num">{{ row.cancel_price|num(3) }}</td>
+              </tr>
+              <tr class="reason-row">
+                <td colspan="8">
+                  <span>原因：{{ row.reasons or "无" }}</span>
+                  {% if row.warnings %}<span class="risk">风险：{{ row.warnings }}</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>样例与数据入口</h2>
+    </div>
+    <form method="post" action="{{ url_for('refresh') }}" class="sample-form">
+      <label>样例股票</label>
+      <input name="symbols" value="000001,600519,300750">
+      <button type="submit" name="action" value="sample">生成样例数据</button>
+    </form>
+    <div class="link-list">
+      <a href="{{ url_for('watchlist') }}">编辑股票池</a>
+      <a href="{{ url_for('data_page') }}">上传或拉取数据</a>
+      <a href="{{ url_for('outputs') }}">查看输出文件</a>
+    </div>
+  </div>
+</section>
+
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>个股画像</h2>
+      {% if latest_profile %}<a href="{{ url_for('output_file', filename=latest_profile.name) }}">CSV</a>{% endif %}
+    </div>
+    {% if profiles.empty %}
+      <div class="empty">暂无画像数据。</div>
+    {% else %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>名称</th>
+              <th>风格</th>
+              <th class="num">高开回落</th>
+              <th class="num">低开反弹</th>
+              <th class="num">日内振幅</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for _, row in profiles.iterrows() %}
+              <tr>
+                <td><a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a></td>
+                <td>{{ row["name"] }}</td>
+                <td>{{ row.preferred_t_style }}</td>
+                <td class="num">{{ row.high_gap_pullback_rate|pct }}</td>
+                <td class="num">{{ row.low_gap_rebound_rate|pct }}</td>
+                <td class="num">{{ row.avg_intraday_amplitude|pct }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>按股票回测</h2>
+      {% if latest_backtest %}<a href="{{ url_for('output_file', filename=latest_backtest.name) }}">报告</a>{% endif %}
+    </div>
+    {% if by_symbol.empty %}
+      <div class="empty">暂无回测数据。</div>
+    {% else %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>名称</th>
+              <th class="num">次数</th>
+              <th class="num">胜率</th>
+              <th class="num">均值</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for _, row in by_symbol.iterrows() %}
+              <tr>
+                <td><a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a></td>
+                <td>{{ row["name"] }}</td>
+                <td class="num">{{ row.trades }}</td>
+                <td class="num">{{ row.success_rate|pct }}</td>
+                <td class="num">{{ row.avg_net_return|pct }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if not holds.empty %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>不做T观察池</h2>
+  </div>
+  <div class="hold-list">
+    {% for _, row in holds.iterrows() %}
+      <div class="hold-item">
+        <span>{{ row.symbol }} {{ row["name"] }}</span>
+        <strong>{{ row.score|num }}</strong>
+        <em>{{ row.warnings or row.reasons }}</em>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

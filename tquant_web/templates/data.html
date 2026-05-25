@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}做T工作台 · 数据{% endblock %}
+{% block heading %}数据上传{% endblock %}
+{% block subheading %}日线、分钟线、指数数据{% endblock %}
+
+{% block content %}
+<section class="layout two">
+  <form method="post" action="{{ url_for('upload_data') }}" enctype="multipart/form-data" class="panel upload-panel">
+    <div class="panel-head">
+      <h2>上传 CSV</h2>
+    </div>
+    <label>数据类型</label>
+    <select name="data_type">
+      <option value="daily">日线</option>
+      <option value="minute">分钟线</option>
+      <option value="index">指数日线</option>
+    </select>
+    <label>代码</label>
+    <input name="symbol" placeholder="600519">
+    <label>CSV 文件</label>
+    <input type="file" name="file" accept=".csv">
+    <button type="submit" class="primary">上传</button>
+  </form>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>AkShare 拉取</h2>
+    </div>
+    <form method="post" action="{{ url_for('fetch_data') }}" class="upload-panel inner-form">
+      <label><input type="checkbox" name="daily" checked> 日线</label>
+      <label><input type="checkbox" name="minute" checked> 分钟线</label>
+      <label>日线开始日期</label>
+      <input name="start_date" value="20230101">
+      <label>日线结束日期</label>
+      <input name="end_date" value="">
+      <label>分钟周期</label>
+      <select name="period">
+        <option value="1">1分钟</option>
+        <option value="5">5分钟</option>
+        <option value="15">15分钟</option>
+      </select>
+      <button type="submit" class="primary">拉取股票池数据</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>当前数据状态</h2>
+  </div>
+  {% if data_status.empty %}
+    <div class="empty">股票池为空。</div>
+  {% else %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>代码</th>
+            <th>名称</th>
+            <th>状态</th>
+            <th class="num">日线</th>
+            <th>最新日线</th>
+            <th class="num">分钟线</th>
+            <th>最新分钟线</th>
+            <th>提示</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for _, row in data_status.iterrows() %}
+            <tr>
+              <td>
+                {% if row.status == "可用" %}
+                  <a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a>
+                {% else %}
+                  <span>{{ row.symbol }}</span>
+                {% endif %}
+              </td>
+              <td>{{ row["name"] }}</td>
+              <td><span class="status {{ 'ok' if row.status == '可用' else 'bad' }}">{{ row.status }}</span></td>
+              <td class="num">{{ row.daily_rows }}</td>
+              <td>{{ row.latest_daily }}</td>
+              <td class="num">{{ row.minute_rows }}</td>
+              <td>{{ row.latest_minute }}</td>
+              <td>{{ row.message }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>CSV 字段</h2>
+  </div>
+    <div class="schema">
+      <strong>日线</strong>
+      <code>date, open, high, low, close, volume, amount</code>
+      <strong>分钟线</strong>
+      <code>datetime, open, high, low, close, volume, amount</code>
+    </div>
+</section>
+{% endblock %}

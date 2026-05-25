@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}做T工作台 · 复盘{% endblock %}
+{% block heading %}做T记录与复盘{% endblock %}
+{% block subheading %}把每一次T记录下来，系统才能知道哪些模式真正有效{% endblock %}
+
+{% block content %}
+<section class="metrics">
+  <div class="metric">
+    <span>记录次数</span>
+    <strong>{{ summary.trades }}</strong>
+  </div>
+  <div class="metric">
+    <span>胜率</span>
+    <strong>{{ summary.win_rate|pct }}</strong>
+  </div>
+  <div class="metric">
+    <span>累计净收益</span>
+    <strong>{{ summary.net_pnl|num(2) }}</strong>
+  </div>
+  <div class="metric">
+    <span>平均单次收益率</span>
+    <strong>{{ summary.avg_net_return|pct }}</strong>
+  </div>
+</section>
+
+<section class="layout two">
+  <form method="post" class="panel upload-panel">
+    <div class="panel-head">
+      <h2>新增做T记录</h2>
+    </div>
+    <label>日期</label>
+    <input name="date" value="">
+    <label>股票代码</label>
+    <select name="symbol">
+      {% for item in items %}
+        <option value="{{ item.symbol }}">{{ item.symbol }} {{ item.name }}</option>
+      {% endfor %}
+    </select>
+    <label>股票名称</label>
+    <input name="name" placeholder="可选">
+    <label>动作</label>
+    <select name="action">
+      <option value="反T">反T：先卖后买</option>
+      <option value="正T">正T：先买后卖</option>
+    </select>
+    <label>数量</label>
+    <input name="quantity" inputmode="numeric" placeholder="1000">
+    <label>卖出价</label>
+    <input name="sell_price" inputmode="decimal" placeholder="10.20">
+    <label>买回价</label>
+    <input name="buy_price" inputmode="decimal" placeholder="10.10">
+    <label>备注</label>
+    <input name="note" placeholder="高开回落 / VWAP买回 / 止损买回">
+    <button type="submit" class="primary">保存记录</button>
+  </form>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>月度复盘</h2>
+    </div>
+    {% if summary.by_month.empty %}
+      <div class="empty">暂无月度统计。</div>
+    {% else %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>月份</th>
+              <th class="num">次数</th>
+              <th class="num">胜率</th>
+              <th class="num">净收益</th>
+              <th class="num">均值</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for _, row in summary.by_month.iterrows() %}
+              <tr>
+                <td>{{ row.month }}</td>
+                <td class="num">{{ row.trades }}</td>
+                <td class="num">{{ row.win_rate|pct }}</td>
+                <td class="num">{{ row.net_pnl|num(2) }}</td>
+                <td class="num">{{ row.avg_return|pct }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>交易明细</h2>
+  </div>
+  {% if trades.empty %}
+    <div class="empty">暂无做T记录。</div>
+  {% else %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>代码</th>
+            <th>动作</th>
+            <th class="num">数量</th>
+            <th class="num">卖出价</th>
+            <th class="num">买回价</th>
+            <th class="num">费用</th>
+            <th class="num">净收益</th>
+            <th class="num">收益率</th>
+            <th>备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for _, row in trades.iterrows() %}
+            <tr>
+              <td>{{ row.date }}</td>
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.action }}</td>
+              <td class="num">{{ row.quantity }}</td>
+              <td class="num">{{ row.sell_price|num(3) }}</td>
+              <td class="num">{{ row.buy_price|num(3) }}</td>
+              <td class="num">{{ row.fees|num(2) }}</td>
+              <td class="num">{{ row.net_pnl|num(2) }}</td>
+              <td class="num">{{ row.net_return|pct }}</td>
+              <td>{{ row.note }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

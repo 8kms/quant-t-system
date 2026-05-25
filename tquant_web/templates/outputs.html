@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}做T工作台 · 文件{% endblock %}
+{% block heading %}输出文件{% endblock %}
+{% block subheading %}信号、画像和回测报告{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>文件列表</h2>
+  </div>
+  {% if not files %}
+    <div class="empty">暂无输出文件。</div>
+  {% else %}
+    <div class="file-list">
+      {% for file in files %}
+        <a href="{{ url_for('output_file', filename=file.name) }}">
+          <span>{{ file.name }}</span>
+          <em>{{ "%.1f"|format(file.stat().st_size / 1024) }} KB</em>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}做T工作台{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">T</div>
+        <div>
+          <div class="brand-title">做T工作台</div>
+          <div class="brand-subtitle">{{ decision_time }} 决策 · 目标空间 {{ cost_edge|pct }}</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">总览</a>
+        <a href="{{ url_for('watchlist') }}" class="{% if request.endpoint == 'watchlist' %}active{% endif %}">股票池</a>
+        <a href="{{ url_for('data_page') }}" class="{% if request.endpoint == 'data_page' %}active{% endif %}">数据</a>
+        <a href="/journal" class="{% if request.endpoint == 'journal' %}active{% endif %}">复盘</a>
+        <a href="{{ url_for('optimize_page') }}" class="{% if request.endpoint == 'optimize_page' %}active{% endif %}">优化</a>
+        <a href="{{ url_for('outputs') }}" class="{% if request.endpoint == 'outputs' %}active{% endif %}">文件</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>{% block heading %}总览{% endblock %}</h1>
+          <p>{% block subheading %}固定股票池 · 日内量价 · 正T/反T{% endblock %}</p>
+        </div>
+        <form method="post" action="{{ url_for('refresh') }}" class="quick-actions">
+          <select id="auto-refresh" aria-label="自动刷新">
+            <option value="0">手动刷新</option>
+            <option value="30">30秒刷新</option>
+            <option value="60">60秒刷新</option>
+          </select>
+          <button type="submit" name="action" value="signals">刷新信号</button>
+          <button type="submit" name="action" value="all" class="primary">全量刷新</button>
+        </form>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+    <div id="toast-container"></div>
+    <div id="rt-price-bar" class="rt-price-bar">
+      <span class="rt-dot"></span>
+      <span id="rt-price-text">加载中...</span>
+    </div>
+    <script>
+      const refreshSelect = document.getElementById("auto-refresh");
+      const savedRefresh = localStorage.getItem("tquant_refresh") || "0";
+      refreshSelect.value = savedRefresh;
+      refreshSelect.addEventListener("change", () => {
+        localStorage.setItem("tquant_refresh", refreshSelect.value);
+        window.location.reload();
+      });
+      const seconds = Number(savedRefresh);
+      if (seconds > 0) {
+        window.setTimeout(() => window.location.reload(), seconds * 1000);
+      }
+
+      if (window.EventSource) {
+        const es = new EventSource("/stream");
+        es.addEventListener("time_reminder", function(e) {
+          const data = JSON.parse(e.data);
+          showToast(data.msg);
+          if (Notification.permission === "granted") {
+            new Notification("做T提醒", { body: data.msg });
+          }
+        });
+        es.addEventListener("message", function(e) {
+          const data = JSON.parse(e.data);
+          const badge = document.getElementById("breadth-badge");
+          if (badge && data.breadth) {
+            badge.textContent = data.breadth.sentiment + " (涨停" + (data.breadth.limit_up||0) + ")";
+            badge.className = "breadth-badge " + (data.breadth.score >= 2 ? "strong" : data.breadth.score >= 1 ? "neutral" : "weak");
+          }
+          // Update real-time price bar
+          const rtBar = document.getElementById("rt-price-text");
+          if (rtBar && data.prices) {
+            const codes = Object.keys(data.prices);
+            if (codes.length > 0) {
+              const p = data.prices[codes[0]];
+              const color = p.change >= 0 ? "#c2413a" : "#0f8a5f";
+              const arrow = p.change >= 0 ? "↑" : "↓";
+              rtBar.innerHTML = '<b>' + p.name + '</b> ' + p.price.toFixed(2) +
+                ' <span style="color:' + color + '">' + arrow + (p.change*100).toFixed(2) + '%</span>' +
+                ' <span style="color:#6c7683;font-size:11px">' + data.time + '</span>';
+            }
+          }
+        });
+        es.onerror = function() { /* reconnect automatically */ };
+      }
+
+      function showToast(msg) {
+        const container = document.getElementById("toast-container");
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.textContent = msg;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 5000);
+      }
+
+      if (window.Notification && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    </script>
+  </body>
+</html>

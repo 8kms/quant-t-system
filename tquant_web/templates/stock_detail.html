@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.symbol }} {{ item.name }} · 数据详情{% endblock %}
+{% block heading %}{{ item.symbol }} {{ item.name }}{% endblock %}
+{% block subheading %}分时、VWAP、日线、因子和原始数据全部串起来看{% endblock %}
+
+{% block content %}
+<section class="metrics">
+  <div class="metric">
+    <span>当前动作</span>
+    <strong class="small-strong">{{ signal.action_cn }}</strong>
+  </div>
+  <div class="metric">
+    <span>信号分数</span>
+    <strong>{{ signal.score|num }}</strong>
+  </div>
+  <div class="metric">
+    <span>实时价 / VWAP</span>
+    <strong class="small-strong">{{ current_price|num(2) }} <span style="font-size:13px;color:{% if realtime_change > 0 %}#c2413a{% elif realtime_change < 0 %}#0f8a5f{% else %}#6c7683{% endif %}">({{ realtime_change|pct }})</span> / {{ vwap|num(2) }}</strong>
+  </div>
+  <div class="metric">
+    <span>PE / PB / 市值</span>
+    <strong class="small-strong">{% if realtime_pe > 0 %}{{ realtime_pe|num(1) }}x{% else %}-{% endif %} / {% if realtime_pb > 0 %}{{ realtime_pb|num(2) }}x{% else %}-{% endif %} / {% if realtime_mcap > 0 %}{{ realtime_mcap|num(1) }}亿{% else %}-{% endif %}</strong>
+  </div>
+</section>
+
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>今日执行计划</h2>
+      <a href="/journal">记录做T</a>
+    </div>
+    {% if plan is defined and plan %}
+      <div class="explain">
+        <div>
+          <span>适宜度</span>
+          <strong>{{ plan.suitability_score|num }}/10</strong>
+        </div>
+        <div>
+          <span>建议</span>
+          <strong>{{ plan.recommendation }}</strong>
+        </div>
+        <div>
+          <span>策略</span>
+          <strong>{{ plan.primary_strategy }}</strong>
+        </div>
+        <div>
+          <span>T仓比例</span>
+          <strong>{{ plan.trade_ratio|pct }}</strong>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>卖出参考1</th>
+              <th>卖出参考2</th>
+              <th>VWAP买回</th>
+              <th>均线买回</th>
+              <th>ATR买回</th>
+              <th>止损买回</th>
+              <th>兜底时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{ plan.sell_ref_1|num(3) }}</td>
+              <td>{{ plan.sell_ref_2|num(3) }}</td>
+              <td>{{ plan.buy_ref_vwap|num(3) }}</td>
+              <td>{{ plan.buy_ref_ma|num(3) }}</td>
+              <td>{{ plan.buy_ref_atr|num(3) }}</td>
+              <td>{{ plan.stop_buyback|num(3) }}</td>
+              <td>{{ plan.force_buyback_time }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="reason-box">
+        <h3>硬规则</h3>
+        <p>T仓不超过30%；14:45前未买回则兜底；卖出后涨超1.5%必须买回；连续3次亏损停止当日做T。</p>
+        <h3>风险提示</h3>
+        <p class="risk">{{ plan.risk_flags }}</p>
+      </div>
+    {% else %}
+      <div class="empty">暂无执行计划。</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>信号解释</h2>
+    </div>
+    <div class="explain">
+      <div>
+        <span>建议仓位</span>
+        <strong>{{ signal.trade_ratio|pct }}</strong>
+      </div>
+      <div>
+        <span>观察价</span>
+        <strong>{{ signal.observe_price|num(3) }}</strong>
+      </div>
+      <div>
+        <span>目标价</span>
+        <strong>{{ signal.target_price|num(3) }}</strong>
+      </div>
+      <div>
+        <span>风控价</span>
+        <strong>{{ signal.cancel_price|num(3) }}</strong>
+      </div>
+    </div>
+    <div class="reason-box">
+      <h3>原因</h3>
+      {% for reason in signal.reasons %}
+        <p>{{ reason }}</p>
+      {% endfor %}
+      <h3>风险</h3>
+      {% if signal.warnings %}
+        {% for warning in signal.warnings %}
+          <p class="risk">{{ warning }}</p>
+        {% endfor %}
+      {% else %}
+        <p>暂无额外风险提示。</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>当日分时 + VWAP</h2>
+      <span class="range">{{ minute_min|num(3) }} - {{ minute_max|num(3) }}</span>
+    </div>
+    <div class="chart">
+      <svg viewBox="0 0 760 220" preserveAspectRatio="none">
+        <line x1="0" y1="110" x2="760" y2="110" class="axis"></line>
+        <polyline points="{{ minute_chart }}" class="line price-line"></polyline>
+        <polyline points="{{ vwap_chart }}" class="line vwap-line"></polyline>
+      </svg>
+      <div class="legend">
+        <span><i class="price-dot"></i>价格</span>
+        <span><i class="vwap-dot"></i>VWAP</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>近80日日线</h2>
+      <span class="range">{{ daily_min|num(3) }} - {{ daily_max|num(3) }}</span>
+    </div>
+    <div class="chart">
+      <svg viewBox="0 0 760 220" preserveAspectRatio="none">
+        <line x1="0" y1="110" x2="760" y2="110" class="axis"></line>
+        <polyline points="{{ daily_chart }}" class="line daily-line"></polyline>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>核心因子</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>因子</th>
+            <th class="num">值</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name, value, kind in factor_rows %}
+            <tr>
+              <td>{{ name }}</td>
+              <td class="num">{% if kind == "pct" %}{{ value|pct }}{% else %}{{ value|num }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>分钟线原始数据</h2>
+    </div>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th class="num">开</th>
+            <th class="num">高</th>
+            <th class="num">低</th>
+            <th class="num">收</th>
+            <th class="num">VWAP</th>
+            <th class="num">成交额</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for _, row in minute.iterrows() %}
+            <tr>
+              <td>{{ row.datetime }}</td>
+              <td class="num">{{ row.open|num(3) }}</td>
+              <td class="num">{{ row.high|num(3) }}</td>
+              <td class="num">{{ row.low|num(3) }}</td>
+              <td class="num">{{ row.close|num(3) }}</td>
+              <td class="num">{{ row.vwap|num(3) }}</td>
+              <td class="num">{{ row.amount|num(0) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>日线原始数据</h2>
+    </div>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th class="num">开</th>
+            <th class="num">高</th>
+            <th class="num">低</th>
+            <th class="num">收</th>
+            <th class="num">成交额</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for _, row in daily.iterrows() %}
+            <tr>
+              <td>{{ row.date }}</td>
+              <td class="num">{{ row.open|num(3) }}</td>
+              <td class="num">{{ row.high|num(3) }}</td>
+              <td class="num">{{ row.low|num(3) }}</td>
+              <td class="num">{{ row.close|num(3) }}</td>
+              <td class="num">{{ row.amount|num(0) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

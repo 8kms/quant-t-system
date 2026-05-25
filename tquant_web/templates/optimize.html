@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}做T工作台 · 参数优化{% endblock %}
+{% block heading %}参数自动优化{% endblock %}
+{% block subheading %}基于复盘记录，分析每只股票的最佳做T参数{% endblock %}
+
+{% block content %}
+<section class="layout two">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>运行优化</h2>
+    </div>
+    <form method="post" class="upload-panel">
+      <p style="color: var(--muted); margin: 0 0 10px;">
+        分析做T日志中的历史交易记录，为每只股票计算最优触发阈值、建议仓位和最佳买回窗口。
+        需要至少 5 笔记录/股票才能生成建议。
+      </p>
+      <button type="submit" class="primary">开始优化分析</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>优化逻辑</h2>
+    </div>
+    <div class="reason-box">
+      <h3>分析维度</h3>
+      <p>按股票+策略分组统计胜率和净收益</p>
+      <p>找到每只票的最佳触发阈值分布</p>
+      <p>识别最有效的买卖时间窗口</p>
+      <p>基于实际胜率回推最优仓位比例</p>
+      <h3>置信度说明</h3>
+      <p><strong>高</strong>: 样本充足(10+笔)，胜率稳定</p>
+      <p><strong>中</strong>: 样本一般(5-10笔)，可参考</p>
+      <p><strong>低</strong>: 样本不足，需更多数据</p>
+    </div>
+  </div>
+</section>
+
+{% if suggestions is defined and not suggestions.empty %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>优化建议</h2>
+    {% if report_file %}<a href="{{ url_for('output_file', filename=report_file.name) }}">下载报告</a>{% endif %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>代码</th>
+          <th>名称</th>
+          <th class="num">笔数</th>
+          <th class="num">胜率</th>
+          <th class="num">平均收益</th>
+          <th>最佳策略</th>
+          <th class="num">建议触发</th>
+          <th class="num">建议仓位</th>
+          <th>买回窗口</th>
+          <th>置信度</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for _, row in suggestions.iterrows() %}
+          <tr>
+            <td><a href="{{ url_for('stock_detail', symbol=row.symbol) }}">{{ row.symbol }}</a></td>
+            <td>{{ row["name"] }}</td>
+            <td class="num">{{ row.total_trades }}</td>
+            <td class="num">{{ row.win_rate|pct }}</td>
+            <td class="num">{{ row.avg_net_return|pct }}</td>
+            <td>{{ row.best_strategy }}</td>
+            <td class="num">{{ row.suggested_gap_trigger|pct }}</td>
+            <td class="num">{{ row.suggested_trade_ratio|pct }}</td>
+            <td>{{ row.suggested_buyback_window }}</td>
+            <td>
+              <span class="status {{ 'ok' if row.confidence == '高' else 'bad' if row.confidence.startswith('低') else '' }}">
+                {{ row.confidence }}
+              </span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% elif report %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>优化报告</h2>
+  </div>
+  <div class="reason-box">
+    <pre style="white-space: pre-wrap; font-family: inherit;">{{ report }}</pre>
+  </div>
+</section>
+{% else %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>优化建议</h2>
+  </div>
+  <div class="empty">
+    暂无优化数据。请先在复盘页面记录至少 5 笔做T操作，然后点击"开始优化分析"。
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}做T工作台 · 股票池{% endblock %}
+{% block heading %}股票池{% endblock %}
+{% block subheading %}固定持仓、自选股和成本信息{% endblock %}
+
+{% block content %}
+<form method="post" class="panel edit-panel">
+  <div class="panel-head">
+    <h2>股票列表</h2>
+    <button type="button" onclick="addRow()">新增一行</button>
+  </div>
+  <div class="table-wrap">
+    <table id="watch-table" class="edit-table">
+      <thead>
+        <tr>
+          <th>代码</th>
+          <th>名称</th>
+          <th>板块</th>
+          <th class="num">底仓</th>
+          <th class="num">成本</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td><input name="symbol" value="{{ item.symbol }}" inputmode="numeric"></td>
+            <td><input name="name" value="{{ item.name }}"></td>
+            <td><input name="sector" value="{{ item.sector }}"></td>
+            <td><input name="base_position" value="{{ item.base_position }}" inputmode="numeric"></td>
+            <td><input name="avg_cost" value="{{ item.avg_cost }}" inputmode="decimal"></td>
+            <td><button type="button" class="ghost" onclick="removeRow(this)">删除</button></td>
+          </tr>
+        {% endfor %}
+        {% if not items %}
+          <tr>
+            <td><input name="symbol" placeholder="600519" inputmode="numeric"></td>
+            <td><input name="name" placeholder="贵州茅台"></td>
+            <td><input name="sector" placeholder="白酒"></td>
+            <td><input name="base_position" value="0" inputmode="numeric"></td>
+            <td><input name="avg_cost" value="0" inputmode="decimal"></td>
+            <td><button type="button" class="ghost" onclick="removeRow(this)">删除</button></td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="primary">保存股票池</button>
+  </div>
+</form>
+
+<script>
+function addRow() {
+  const tbody = document.querySelector("#watch-table tbody");
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input name="symbol" placeholder="600519" inputmode="numeric"></td>
+    <td><input name="name"></td>
+    <td><input name="sector"></td>
+    <td><input name="base_position" value="0" inputmode="numeric"></td>
+    <td><input name="avg_cost" value="0" inputmode="decimal"></td>
+    <td><button type="button" class="ghost" onclick="removeRow(this)">删除</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+function removeRow(button) {
+  button.closest("tr").remove();
+}
+</script>
+{% endblock %}
+
