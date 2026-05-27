@@ -1,0 +1,4 @@
+interface:
+  display_name: "A股盘面结构诊断"
+  short_description: "A-share trend, chip, funding, and position risk diagnostics"
+  default_prompt: "Use $a-share-market-structure-analyzer to analyze this A-share chart, position, or stock code and produce disciplined risk guidance."
